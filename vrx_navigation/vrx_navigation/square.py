@@ -32,10 +32,6 @@ class SquareNode:
     def imu_callback(self, msg: Imu):
         orientation_q = msg.orientation
         _, _, self.current_yaw = euler_from_quaternion([orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w])
-
-    def imu_callback(self, msg: Imu):
-        orientation_q = msg.orientation
-        _, _, self.current_yaw = euler_from_quaternion([orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w])
         if not self.imu_received:
             self.imu_received = True
             rospy.loginfo("Dados da IMU recebidos!")
