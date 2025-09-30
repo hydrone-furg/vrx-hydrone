@@ -87,8 +87,7 @@ class SquareNode:
             rospy.loginfo(f"#--- LADO {i+1}: Seguindo em linha reta... ---#")
             start_time = rospy.Time.now()
             rate = rospy.Rate(20)
-            while rospy.Time.now() - start_time < rospy.Duration(self.SIDE_DURATION):
-                if rospy.is_shutdown(): return
+            while rospy.Time.now() - start_time < rospy.Duration(self.SIDE_DURATION) and not rospy.is_shutdown():
                 self.set_thrusters(self.THRUST_FORWARD, self.THRUST_FORWARD)
                 rate.sleep()
             
