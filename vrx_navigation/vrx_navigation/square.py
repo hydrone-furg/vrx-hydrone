@@ -19,7 +19,6 @@ class SquareNode:
         self.THRUST_TURN = 0.5
         self.DEGREE_RANGE = 5.0
 
-        rospy.init_node('square_node', anonymous=True)
         self.left_thrust_pub = rospy.Publisher(self.LEFT_THRUSTER_TOPIC, Float32, queue_size=1)
         self.right_thrust_pub = rospy.Publisher(self.RIGHT_THRUSTER_TOPIC, Float32, queue_size=1)
         self.imu_sub = rospy.Subscriber(self.IMU_TOPIC, Imu, self.imu_callback)
@@ -40,8 +39,6 @@ class SquareNode:
             self.imu_received = True
             rospy.loginfo("Dados da IMU recebidos!")
             self.change_state('FORWARD')
-        else:
-            self.change_state('WAITING_FOR_IMU') # TODO: check
 
     def normalize_angle(self, angle):
         while angle > math.pi: angle -= 2.0 * math.pi
@@ -78,7 +75,8 @@ class SquareNode:
         rate.sleep()
     '''
 
-    def state(self): # TODO: check ambiguity
+    '''
+    def state(self): # TODO: check ambiguity // remove?
         if self.state == 'WAITING_FOR_IMU':
             rospy.loginfo_once("Aguardando IMU...") 
             ### TODO: raise in Exception rospy.ROSInterruptException: (losing IMU data in operation)
@@ -88,10 +86,8 @@ class SquareNode:
             self.run()
         
         elif self.state == 'TURN':
-            self.turn(self.target_yaw)
             self.stop_the_boat()
-            rospy.loginfo("Curva completa. Movendo para o próximo lado...")
-            self.change_state('FORWARD')
+    '''
 
     def change_state(self, new_state):
         rospy.loginfo(f"Mudando de estado: {self.state} -> {new_state}")
@@ -137,7 +133,7 @@ class SquareNode:
         elif self.state == 'DONE':
             self.stop_the_boat()
 
-
+        # TODO: imu failed in operation condition
 
 
 
