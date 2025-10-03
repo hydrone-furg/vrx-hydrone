@@ -5,6 +5,7 @@ import math
 from sensor_msgs.msg import Imu
 from std_msgs.msg import Float32
 from tf.transformations import euler_from_quaternion
+#from rostopic import ROSTopicHz
 
 class SquareNode:
     def __init__(self):
@@ -22,9 +23,13 @@ class SquareNode:
         self.left_thrust_pub = rospy.Publisher(self.LEFT_THRUSTER_TOPIC, Float32, queue_size=1)
         self.right_thrust_pub = rospy.Publisher(self.RIGHT_THRUSTER_TOPIC, Float32, queue_size=1)
         self.imu_sub = rospy.Subscriber(self.IMU_TOPIC, Imu, self.imu_callback)
-
+        '''
+        self.MIN_IMU_HZ = 10.0
+        self.imu_rate_monitor = ROSTopicHz(15, filter_expr=None)
+        self.imu_rate_sub = rospy.Subscriber(self.IMU_TOPIC, rospy.AnyMsg, self.imu_rate_monitor.callback_hz)
+        '''
         rospy.on_shutdown(self.shutdown) ### TODO: check
-        rospy.loginfo("Aguardando IMU...") ### TODO: check
+        rospy.loginfo("Aguardando IMU...")
         self.current_yaw  = None
         self.imu_received = False
 
@@ -35,7 +40,7 @@ class SquareNode:
     def imu_callback(self, msg: Imu):
         orientation_q = msg.orientation
         _, _, self.current_yaw = euler_from_quaternion([orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w])
-        if not self.imu_received: # TODO: check
+        if not self.imu_received:
             self.imu_received = True
             rospy.loginfo("Dados da IMU recebidos!")
             self.change_state('FORWARD')
@@ -57,64 +62,34 @@ class SquareNode:
         rospy.loginfo("Barco parado, desligando o nó.")
         self.stop_the_boat()
 
-    '''
-    def turn(self, target_angle):
-        rate = rospy.Rate(20) ### set rate?
-        rospy.loginfo(f"Iniciando virada até atingir o ponto de antecipação de {self.DEGREE_RANGE} graus.")
-        ## set shutdown?
-        error_rad = self.normalize_angle(target_angle - self.current_yaw )
-        error_degrees = math.degrees(error_rad)
-
-        rospy.loginfo_throttle(1, f"Alvo: {math.degrees(target_angle):.1f}, Erro: {error_degrees:.1f} graus")
-
-        if abs(error_degrees) <= self.DEGREE_RANGE:
-            rospy.loginfo("Condição satisfeita.")
-            return
-
-        self.set_thrusters(self.THRUST_TURN, -self.THRUST_TURN)
-        rate.sleep()
-    '''
-
-    '''
-    def state(self): # TODO: check ambiguity // remove?
-        if self.state == 'WAITING_FOR_IMU':
-            rospy.loginfo_once("Aguardando IMU...") 
-            ### TODO: raise in Exception rospy.ROSInterruptException: (losing IMU data in operation)
-            rospy.sleep(0.5)
-            
-        elif self.state == 'FORWARD': 
-            self.run()
-        
-        elif self.state == 'TURN':
-            self.stop_the_boat()
-    '''
-
     def change_state(self, new_state):
-        rospy.loginfo(f"Mudando de estado: {self.state} -> {new_state}")
-        self.state = new_state
-        
-        if self.state == 'FORWARD':
-            self.state_start_time = rospy.Time.now()
-            rospy.sleep(0.5)
-            rospy.loginfo(f"#--- LADO {self.side_counter + 1}: Seguindo em linha reta... ---#")
-            # TODO: call manual mode service
-        
-        elif self.state == 'TURN':
-            self.stop_the_boat()
-            self.target_yaw = self.normalize_angle(self.current_yaw - math.radians(90))
-            # TODO: call manual mode service
+        if self.state != new_state:
+            rospy.loginfo(f"Mudando de estado: {self.state} -> {new_state}")
+            self.state = new_state
 
-        elif self.state == 'DONE':
-            rospy.loginfo("Percurso do quadrado finalizado!")
-            self.stop_the_boat()
+            if self.state == 'FORWARD':
+                self.state_start_time = rospy.Time.now()
+                rospy.loginfo(f"#--- LADO {self.side_counter + 1}: Iniciando movimento em linha reta... ---#")
+            
+            elif self.state == 'TURN':
+                self.target_yaw = self.normalize_angle(self.current_yaw - math.radians(90))
+                self.stop_the_boat()
 
-    def run(self): # TODO: set while condition
+    def run(self):
+        #hz_info = self.imu_rate_monitor.get_hz(self.IMU_TOPIC)
+
+        
+        #if self.imu_received and current_rate < self.MIN_IMU_HZ and self.state != 'IMU_FAILURE':
+            #rospy.loginfo(f"FREQUÊNCIA DA IMU BAIXA: {current_rate:.2f} Hz. Parando o barco!")
+            #self.change_state('IMU_FAILURE')
+        
         if self.current_yaw is None:
             return
 
         if self.state == 'FORWARD':
-            self.set_thrusters(self.THRUST_FORWARD, self.THRUST_FORWARD)            
-            if rospy.Time.now() - self.state_start_time >= self.SIDE_DURATION:
+            self.set_thrusters(self.THRUST_FORWARD, self.THRUST_FORWARD)
+            # TODO: call manual mode service
+            if self.state_start_time and (rospy.Time.now() - self.state_start_time >= rospy.Duration(self.SIDE_DURATION)):
                 self.side_counter += 1
                 if self.side_counter >= 4:
                     self.change_state('DONE')
@@ -122,6 +97,9 @@ class SquareNode:
                     self.change_state('TURN')
 
         elif self.state == 'TURN':
+            self.stop_the_boat()
+            self.target_yaw = self.normalize_angle(self.current_yaw - math.radians(90))
+            # TODO: call manual mode service
             error_rad = self.normalize_angle(self.target_yaw - self.current_yaw)
             error_degrees = math.degrees(error_rad)
             rospy.loginfo_throttle(1, f"Alvo: {math.degrees(self.target_yaw):.1f}, Atual: {math.degrees(self.current_yaw):.1f}, Erro: {error_degrees:.1f}°")
@@ -131,42 +109,13 @@ class SquareNode:
                 self.set_thrusters(self.THRUST_TURN, -self.THRUST_TURN)
         
         elif self.state == 'DONE':
+            rospy.loginfo("Percurso do quadrado finalizado!")
             self.stop_the_boat()
 
-        # TODO: imu failed in operation condition
-
-
-
-        '''
-        while not self.imu_received and not rospy.is_shutdown(): ###
-            rospy.loginfo_once("Aguardando IMU...") ###
-            rospy.sleep(0.5) ###
-
-        if rospy.is_shutdown(): ###
-            return ###
-        
-        rospy.loginfo("Percorrendo o quadrado!")
-        
-        for i in range(4):
-            rospy.loginfo(f"#--- LADO {i+1}: Seguindo em linha reta... ---#")
-            start_time = rospy.Time.now()
-            rate = rospy.Rate(20) ###
-            while rospy.Time.now() - start_time < rospy.Duration(self.SIDE_DURATION) and not rospy.is_shutdown(): ##
-                self.set_thrusters(self.THRUST_FORWARD, self.THRUST_FORWARD)
-                rate.sleep()
-            
-            if i == 3:
-                break
-
+        # imu failed in operation condition
+        elif self.state == 'IMU_FAILURE':
             self.stop_the_boat()
-            rospy.loginfo("Parada completa. Movendo para próxima curva...")
-            rospy.loginfo(f"#--- CURVA {i+1}. ---#")
-            target_angle = self.normalize_angle(self.current_yaw  - math.radians(90))
-            self.turn(target_angle)
-        
-        rospy.loginfo("Percurso do quadrado finalizado!")
-        self.stop_the_boat()
-        '''
+
 
 def main():
     rospy.init_node('square_node', anonymous=True)
@@ -176,16 +125,17 @@ def main():
 
     try:
         while not rospy.is_shutdown():
-            controller.state()
+            controller.run()
             rate.sleep()
+
+    except rospy.ROSInterruptException:
+        rospy.loginfo("Programa interrompido (Ctrl+C).")
+        pass
+
     finally:
         rospy.loginfo('Parando o barco...')
         controller.stop_the_boat()
         rospy.sleep(0.5)
 
 if __name__ == '__main__':
-    try:
-        main()
-    except rospy.ROSInterruptException:
-        rospy.loginfo("Programa interrompido (Ctrl+C).")
-        pass
+    main()
