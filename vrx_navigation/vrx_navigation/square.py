@@ -84,7 +84,7 @@ class SquareNode:
             #self.change_state('IMU_FAILURE')
         
         if self.current_yaw is None:
-            return
+            raise Exception("ERRO: Dados da IMU não estão sendo recebidos!")
 
         if self.state == 'FORWARD':
             self.set_thrusters(self.THRUST_FORWARD, self.THRUST_FORWARD)
