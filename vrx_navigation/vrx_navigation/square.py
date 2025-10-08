@@ -29,7 +29,7 @@ class SquareNode:
         self.imu_rate_monitor = ROSTopicHz(15, filter_expr=None)
         self.imu_rate_sub = rospy.Subscriber(self.IMU_TOPIC, rospy.AnyMsg, self.imu_rate_monitor.callback_hz)
         '''
-        rospy.on_shutdown(self.shutdown) ### TODO: check
+        rospy.on_shutdown(self.shutdown)
         rospy.loginfo("Aguardando IMU...")
         self.current_yaw  = None
         self.imu_received = False
@@ -132,7 +132,7 @@ class SquareNode:
 def main():
     rospy.init_node('square_node', anonymous=True)
     rospy.loginfo("Nó 'square_node' inicializado.")
-    controller = SquareNode() ### set rate on main
+    controller = SquareNode()
     rate = rospy.Rate(20)
 
     try:
@@ -147,7 +147,6 @@ def main():
     finally:
         rospy.loginfo('Parando o barco...')
         controller.stopping_the_boat()
-        rospy.sleep(0.5)
-
+        
 if __name__ == '__main__':
     main()
