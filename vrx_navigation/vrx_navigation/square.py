@@ -89,7 +89,10 @@ class SquareNode:
         if self.state == 'FORWARD':
             self.set_thrusters(self.THRUST_FORWARD, self.THRUST_FORWARD)
             # TODO: call manual mode service
-            if self.state_start_time and (rospy.Time.now() - self.state_start_time >= rospy.Duration(self.SIDE_DURATION)):
+            if self.state_start_time is None:
+                raise Exception("ERRO: Faltando o start time!")
+
+            elif (rospy.Time.now() - self.state_start_time >= rospy.Duration(self.SIDE_DURATION)):
                 self.side_counter += 1
                 if self.side_counter >= 4:
                     self.change_state('DONE')
