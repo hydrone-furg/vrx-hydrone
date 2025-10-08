@@ -16,6 +16,7 @@ class SquareNode:
         self.THRUST_NEUTRAL = 0.0
         self.THRUST_FORWARD = 20.0
         self.SIDE_DURATION = 4.0
+        self.WAIT_DURATION = 2.0
         
         self.THRUST_TURN = 0.5
         self.DEGREE_RANGE = 5.0
@@ -54,13 +55,13 @@ class SquareNode:
         self.left_thrust_pub.publish(Float32(float(left_thrust)))
         self.right_thrust_pub.publish(Float32(float(right_thrust)))
 
-    def stop_the_boat(self):
+    def stopping_the_boat(self):
         self.set_thrusters(self.THRUST_NEUTRAL, self.THRUST_NEUTRAL)
         # TODO: call loiter mode service
 
     def shutdown(self):
         rospy.loginfo("Barco parado, desligando o nó.")
-        self.stop_the_boat()
+        self.stopping_the_boat()
 
     def change_state(self, new_state):
         if self.state != new_state:
@@ -71,9 +72,9 @@ class SquareNode:
                 self.state_start_time = rospy.Time.now()
                 rospy.loginfo(f"#--- LADO {self.side_counter + 1}: Iniciando movimento em linha reta... ---#")
             
-            elif self.state == 'TURN':
-                self.target_yaw = self.normalize_angle(self.current_yaw - math.radians(90))
-                self.stop_the_boat()
+            elif self.state == 'WAIT_TO_STOP':
+                self.state_start_time = rospy.Time.now()
+                rospy.loginfo_once(f"#--- Aguardando {self.WAIT_DURATION} segundos para o barco parar... ---#")
 
     def run(self):
         #hz_info = self.imu_rate_monitor.get_hz(self.IMU_TOPIC)
@@ -97,10 +98,9 @@ class SquareNode:
                 if self.side_counter >= 4:
                     self.change_state('DONE')
                 else:
-                    self.change_state('TURN')
+                    self.change_state('WAIT_TO_STOP')
 
         elif self.state == 'TURN':
-            self.stop_the_boat()
             self.target_yaw = self.normalize_angle(self.current_yaw - math.radians(90))
             # TODO: call manual mode service
             error_rad = self.normalize_angle(self.target_yaw - self.current_yaw)
@@ -110,14 +110,23 @@ class SquareNode:
                 self.change_state('FORWARD')
             else:
                 self.set_thrusters(self.THRUST_TURN, -self.THRUST_TURN)
+                
+        elif self.state == 'WAIT_TO_STOP':
+            self.stopping_the_boat()
+            
+            if self.state_start_time is None:
+                raise Exception("ERRO: Faltando o start time!")
+
+            elif (rospy.Time.now() - self.state_start_time >= rospy.Duration(self.WAIT_DURATION)):
+                self.change_state('TURN')
         
         elif self.state == 'DONE':
             rospy.loginfo("Percurso do quadrado finalizado!")
-            self.stop_the_boat()
+            self.stopping_the_boat()
 
         # imu failed in operation condition
         elif self.state == 'IMU_FAILURE':
-            self.stop_the_boat()
+            self.stopping_the_boat()
 
 
 def main():
@@ -137,7 +146,7 @@ def main():
 
     finally:
         rospy.loginfo('Parando o barco...')
-        controller.stop_the_boat()
+        controller.stopping_the_boat()
         rospy.sleep(0.5)
 
 if __name__ == '__main__':
