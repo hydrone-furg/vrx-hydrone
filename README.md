@@ -29,6 +29,9 @@ cd ~/vrx_hy_ws/src
 ```
 git clone https://github.com/hydrone-furg/vrx-hydrone -b noetic-dev
 ```
+```
+chmod +x ~/vrx_hy_ws/src/vrx-hydrone/vrx_gazebo/scripts/generate_avoid_obstacles_buoys.py
+```
 
 ## Build and Run the VRX Simulation Platform
 ### Step 1: Build
