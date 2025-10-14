@@ -1,21 +1,53 @@
 # vrx-hydrone
 
-## Setup inicial:
-### Passos:
-Siga esses [passos](https://github.com/osrf/vrx/wiki/preparing_system_tutorial/be4182c59bdf4bc26040c99ae722b59e9bd20829) para instalação correta.
-
+## Dependencies
+Install [ROS 1 Noetic](https://wiki.ros.org/noetic/Installation/Ubuntu) 
 ```
-cd ~/vrx_ws/src
-source /opt/ros/humble/setup.bash
-cd ~/vrx_ws
-colcon build --merge-install
-. install/setup.bash
+sudo apt update
 ```
 
-Para executar o **mundo: sydney_regatta**:
 ```
-ros2 launch vrx_gz competition.launch.py world:=sydney_regatta
+sudo apt install -y build-essential cmake cppcheck curl git gnupg libeigen3-dev libgles2-mesa-dev lsb-release pkg-config protobuf-compiler qtbase5-dev python3-dbg python3-pip python3-venv ruby software-properties-common wget 
+sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
+sudo apt-key adv --keyserver 'hkp://keyserver.ubuntu.com:80' --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654
+sudo sh -c 'echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_release -cs` main" > /etc/apt/sources.list.d/gazebo-stable.list'
+wget http://packages.osrfoundation.org/gazebo.key -O - | sudo apt-key add -
+sudo apt update
+DIST=noetic
+GAZ=gazebo11
+sudo apt install ${GAZ} lib${GAZ}-dev ros-${DIST}-gazebo-plugins ros-${DIST}-gazebo-ros ros-${DIST}-hector-gazebo-plugins ros-${DIST}-joy ros-${DIST}-joy-teleop ros-${DIST}-key-teleop ros-${DIST}-robot-localization ros-${DIST}-robot-state-publisher ros-${DIST}-joint-state-publisher ros-${DIST}-rviz ros-${DIST}-ros-base ros-${DIST}-teleop-tools ros-${DIST}-teleop-twist-keyboard ros-${DIST}-velodyne-simulator ros-${DIST}-xacro ros-${DIST}-rqt ros-${DIST}-rqt-common-plugins
+sudo apt install ros-noetic-geographic-msgs
 ```
+
+## Create your Workspace and Get the Source Code
+### Set up your workspace in the home directory of your host:
+```
+mkdir -p ~/vrx_hy_ws/src
+cd ~/vrx_hy_ws/src
+```
+### Clone the hydrone-vrx source repository:
+```
+git clone https://github.com/hydrone-furg/vrx-hydrone -b noetic-dev
+```
+
+## Build and Run the VRX Simulation Platform
+### Step 1: Build
+```
+source /opt/ros/noetic/setup.bash
+```
+```
+cd ~/vrx_hy_ws
+catkin_make
+```
+
+### Step 2: Run
+```
+source  ~/vrx_hy_ws/devel/setup.bash
+roslaunch vrx_gazebo vrx.launch
+```
+
+For more information, read:
+[vrx_classic_tutorials](https://github.com/osrf/vrx/wiki/vrx_classic_api_tutorials)
 
 # Virtual RobotX (VRX)
 This repository is the home to the source code and software documentation for the VRX simulation environment, which supports simulation of unmanned surface vehicles in marine environments.
