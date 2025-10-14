@@ -9,8 +9,8 @@ from tf.transformations import euler_from_quaternion
 
 class SquareNode:
     def __init__(self):
-        self.LEFT_THRUSTER_TOPIC = '/wamv/thrusters/left_thruster_thrust_cmd'
-        self.RIGHT_THRUSTER_TOPIC = '/wamv/thrusters/right_thruster_thrust_cmd'
+        self.LEFT_THRUSTER_TOPIC = '/wamv/thrusters/left_thrust_cmd'
+        self.RIGHT_THRUSTER_TOPIC = '/wamv/thrusters/right_thrust_cmd'
         self.IMU_TOPIC = '/wamv/sensors/imu/imu/data'
 
         self.THRUST_NEUTRAL = 0.0
@@ -32,17 +32,21 @@ class SquareNode:
         rospy.on_shutdown(self.shutdown)
         rospy.loginfo("Aguardando IMU...")
         self.current_yaw  = None
-        self.imu_received = False
+        self.target_yaw = None
+        # self.imu_received = False
 
-        self.state = None
+        self.last_imu_time = None
+        self.imu_timeout = rospy.Duration(1.0)
+
+        self.state = 'WAITING_FOR_IMU'
         self.state_start_time = None
         self.side_counter = 0
 
     def imu_callback(self, msg: Imu):
+        self.last_imu_time = rospy.Time.now()
         orientation_q = msg.orientation
         _, _, self.current_yaw = euler_from_quaternion([orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w])
-        if not self.imu_received:
-            self.imu_received = True
+        if self.state == 'WAITING_FOR_IMU':
             rospy.loginfo("Dados da IMU recebidos!")
             self.change_state('FORWARD')
 
@@ -72,6 +76,9 @@ class SquareNode:
                 self.state_start_time = rospy.Time.now()
                 rospy.loginfo(f"#--- LADO {self.side_counter + 1}: Iniciando movimento em linha reta... ---#")
             
+            elif self.state == 'TURN':
+                self.target_yaw = self.normalize_angle(self.current_yaw - math.radians(90))
+
             elif self.state == 'WAIT_TO_STOP':
                 self.state_start_time = rospy.Time.now()
                 rospy.loginfo_once(f"#--- Aguardando {self.WAIT_DURATION} segundos para o barco parar... ---#")
@@ -84,8 +91,14 @@ class SquareNode:
             #rospy.loginfo(f"FREQUÊNCIA DA IMU BAIXA: {current_rate:.2f} Hz. Parando o barco!")
             #self.change_state('IMU_FAILURE')
         
-        if self.current_yaw is None:
+        if self.state == 'WAITING_FOR_IMU':
+            rospy.loginfo_once("Aguardando a primeira mensagem da IMU...")
+            return
+
+        if self.last_imu_time is None or (rospy.Time.now() - self.last_imu_time) > self.imu_timeout:
+            self.change_state('IMU_FAILURE')
             raise Exception("ERRO: Dados da IMU não estão sendo recebidos!")
+        
 
         if self.state == 'FORWARD':
             self.set_thrusters(self.THRUST_FORWARD, self.THRUST_FORWARD)
@@ -101,7 +114,6 @@ class SquareNode:
                     self.change_state('WAIT_TO_STOP')
 
         elif self.state == 'TURN':
-            self.target_yaw = self.normalize_angle(self.current_yaw - math.radians(90))
             # TODO: call manual mode service
             error_rad = self.normalize_angle(self.target_yaw - self.current_yaw)
             error_degrees = math.degrees(error_rad)
@@ -121,7 +133,7 @@ class SquareNode:
                 self.change_state('TURN')
         
         elif self.state == 'DONE':
-            rospy.loginfo("Percurso do quadrado finalizado!")
+            rospy.loginfo_once("Percurso do quadrado finalizado!")
             self.stopping_the_boat()
 
         # imu failed in operation condition

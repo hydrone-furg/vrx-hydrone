@@ -1,28 +1,15 @@
 ## Navegação:
-* Navegação via WASD;
-* Ativação dos motores quando o nodo de localização está ativo;
-* Navegação com GPS via waypoints definidos por coordenadas.
+* Navegação sem GPS, faz um quadrado (square node).
 
 ### Passos:
 ```
-cd ~/vrx_ws
-colcon build --merge-install
-source /opt/ros/humble/setup.bash
-source install/setup.bash 
-. install/setup.bash
+cd ~/vrx_hy_ws
+catkin_make
+source /opt/ros/noetic/setup.bash
+source  ~/vrx_hy_ws/devel/setup.bash
 ```
 
-Para executar o **timed_thrust_node**:
+Para executar o **square_node**:
 ```
-ros2 run vrx_navigation timed
-```
-
-Para executar o **navigation_node_keyboard**:
-```
-ros2 run vrx_navigation waypoint_navigator
-```
-
-Para executar o **waypoint_navigator**:
-```
-ros2 launch vrx_navigation navigation.launch.py
+rosrun vrx_navigation square.py
 ```
