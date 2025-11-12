@@ -2,6 +2,7 @@
 
 import queue
 from geometry_msgs.msg import Twist
+import math
 
 class PIDController:
     '''
@@ -19,6 +20,11 @@ class PIDController:
         self.err_hist = queue.Queue(self.kS) # Limited buffer of error history
         self.t_prev   = 0 # Previous time
 
+    def normalize_angle(self, angle):
+        while angle > math.pi: angle -= 2.0 * math.pi
+        while angle < -math.pi: angle += 2.0 * math.pi
+        return angle
+
     def control(self, err, t):
         '''
         Generate PID controller output.
@@ -34,7 +40,7 @@ class PIDController:
             self.err_int += err
             if self.err_hist.full(): # Jacketing logic to prevent integral windup
                 self.err_int -= self.err_hist.get() # Rolling FIFO buffer
-            self.err_dif = (err - self.err_prev)
+            self.err_dif = self.normalize_angle(err - self.err_prev)
             u = (self.kP * err) + (self.kI * self.err_int * dt) + (self.kD * self.err_dif / dt)
             self.err_prev = err
             self.t_prev = t
