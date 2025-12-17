@@ -14,6 +14,10 @@ PID_KI = 0.0
 PID_KD = 1.3
 PID_KS = 50 # error buffer
 
+PID_FORWARD_KP = 5.0
+PID_FORWARD_KI = 0.0
+PID_FORWARD_KD = 2.0
+
 class SquareNode:
     def __init__(self):
         self.LEFT_THRUSTER_TOPIC = '/wamv/thrusters/left_thrust_cmd'
@@ -50,7 +54,12 @@ class SquareNode:
 
         self.pid_gains = (PID_KP, PID_KI, PID_KD, PID_KS)
         self.pid_turn = PIDController(*self.pid_gains)
-        rospy.loginfo(f"Controlador PID: Kp={PID_KP}, Ki={PID_KI}, Kd={PID_KD}")
+        rospy.loginfo(f"Turn: Kp={PID_KP}, Ki={PID_KI}, Kd={PID_KD}")
+
+        self.pid_forward_gains = (PID_FORWARD_KP, PID_FORWARD_KI, PID_FORWARD_KD, PID_KS)
+        self.pid_forward = PIDController(*self.pid_forward_gains)
+        self.target_heading_forward = None
+        rospy.loginfo(f"Forward:K p={PID_FORWARD_KP}, Ki={PID_FORWARD_KI}, Kd={PID_FORWARD_KD}")
 
     def imu_callback(self, msg: Imu):
         self.last_imu_time = rospy.Time.now()
@@ -83,7 +92,9 @@ class SquareNode:
 
         if self.state == 'FORWARD':
             self.state_start_time = rospy.Time.now()
-            rospy.loginfo(f"#--- LADO {self.side_counter + 1}: Iniciando movimento em linha reta... ---#")
+            self.target_heading_forward = self.current_yaw
+            self.pid_forward = PIDController(*self.pid_forward_gains)
+            rospy.loginfo(f"#--- LADO {self.side_counter + 1}: {math.degrees(self.target_heading_forward):.1f}° ---#")
 
         elif self.state == 'TURN':
             self.target_yaw = self.normalize_angle(self.current_yaw - math.radians(90))
@@ -118,7 +129,19 @@ class SquareNode:
         
 
         if self.state == 'FORWARD':
-            self.set_thrusters(self.THRUST_FORWARD, self.THRUST_FORWARD)
+            error_rad = self.normalize_angle(self.target_heading_forward - self.current_yaw)
+            current_time = rospy.Time.now().to_sec()
+            control_signal = self.pid_forward.control(error_rad, current_time)
+            MAX_CORRECTION = 10.0
+            control_signal_saturated = max(-MAX_CORRECTION, min(MAX_CORRECTION, control_signal))
+
+            left_thrust = self.THRUST_FORWARD - control_signal_saturated
+            right_thrust = self.THRUST_FORWARD + control_signal_saturated
+            
+            left_thrust = max(-100, min(100, left_thrust))
+            right_thrust = max(-100, min(100, right_thrust))
+
+            self.set_thrusters(left_thrust, right_thrust)
             # TODO: call manual mode service
             if self.state_start_time is None:
                 raise Exception("ERRO: Faltando o start time!")
